@@ -1,0 +1,81 @@
+name: iOS Build and Upload to TestFlight
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 31
+
+    steps:
+    # Step 1: Checkout the repository
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Step 2: Clean DerivedData
+    - name: Clean DerivedData
+      run: |
+        rm -rf ~/Library/Developer/Xcode/DerivedData
+
+    # Step 3: Set up Node.js
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '21.x'
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.3'
+
+    # Step 4: Install dependencies (npm and Pods)
+    - name: Install dependencies
+      run: |
+        npm install
+        cd ios
+        pod install --repo-update
+
+    # Step 5: Decrypt and install certificates and provisioning profiles
+    - name: Decrypt and install certificates and provisioning profiles
+      run: |
+        echo ${{ secrets.DEV_P12_BASE64 }} | base64 --decode > AppCheckGit_Dev.p12
+        echo ${{ secrets.DIS_P12_BASE64 }} | base64 --decode > AppCheckGit_Dis.p12
+        echo ${{ secrets.DEV_MOBILEPROVISION_BASE64 }} | base64 --decode > AppCheckGit_Dev.mobileprovision
+        echo ${{ secrets.DIS_MOBILEPROVISION_BASE64 }} | base64 --decode > AppCheckGit_Dis.mobileprovision
+
+        security create-keychain -p "" build.keychain
+        security import AppCheckGit_Dev.p12 -k ~/Library/Keychains/build.keychain -P "intel123" -T /usr/bin/codesign
+        security import AppCheckGit_Dis.p12 -k ~/Library/Keychains/build.keychain -P "intel123" -T /usr/bin/codesign
+
+        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+        cp AppCheckGit_Dev.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+        cp AppCheckGit_Dis.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
+        security list-keychains -s ~/Library/Keychains/build.keychain
+        security default-keychain -s ~/Library/Keychains/build.keychain
+        security unlock-keychain -p "" ~/Library/Keychains/build.keychain
+        security set-key-partition-list -S apple-tool:,apple: -s -k "" ~/Library/Keychains/build.keychain
+
+    # Step 6: Set up Ruby and install Fastlane
+    - name: Set up Ruby and Install Fastlane
+      run: |
+        sudo gem install bundler:2.1.4
+        bundle install
+        gem install fastlane
+    # Step 7: Build and Upload to TestFlight
+    - name: Build and Upload to TestFlight
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APP_STORE_EMAIL: ${{ secrets.APP_STORE_EMAIL }}
+        FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }}
+        DEV_PROVISION_PROFILE: ${{ secrets.DEV_PROVISION_PROFILE }}
+        DIS_PROVISION_PROFILE: ${{ secrets.DIS_PROVISION_PROFILE }}
+        DEV_CERTIFICATE: ${{ secrets.DEV_CERTIFICATE }}
+        DIS_CERTIFICATE: ${{ secrets.DIS_CERTIFICATE }}
+        P12_PASSWORD: ${{ secrets.P12_PASSWORD }}  # Add this secret for your .p12 password if needed.
+      
+      run: |
+        fastlane ios build_and_upload_to_testflight

@@ -3,7 +3,17 @@ default_platform(:ios)
 platform :ios do
   desc "Build and upload to TestFlight"
   lane :build_and_upload_to_testflight do
-    # Remove match and handle certificates manually
+    # Decode provisioning profiles
+    File.write("AppCheckGit_Dev.mobileprovision", ENV['DEV_PROVISION_PROFILE'].unpack1('m'))
+    File.write("AppCheckGit_Dis.mobileprovision", ENV['DIS_PROVISION_PROFILE'].unpack1('m'))
+
+    # Decode certificates
+    File.write("AppCheckGit_Dev.p12", ENV['DEV_CERTIFICATE'].unpack1('m'))
+    File.write("AppCheckGit_Dis.p12", ENV['DIS_CERTIFICATE'].unpack1('m'))
+
+    # Import the distribution certificate into the keychain
+    sh "security import AppCheckGit_Dis.p12 -P #{ENV['P12_PASSWORD']} -A"
+    sh "security import AppCheckGit_Dev.p12 -P #{ENV['P12_PASSWORD']} -A"
 
     # Build the app using Gym
     gym(
