@@ -1,0 +1,22 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build and upload to TestFlight"
+  lane :build_and_upload_to_testflight do
+    # Remove match and handle certificates manually
+
+    # Build the app using Gym
+    gym(
+      workspace: "./ios/AppCheck.xcworkspace",
+      scheme: "AppCheck",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "AppCheck.ipa",
+      xcargs: "-verbose"
+    )
+
+    # Upload to TestFlight
+    upload_to_testflight
+  end
+end
