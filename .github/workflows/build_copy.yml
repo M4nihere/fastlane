@@ -38,27 +38,34 @@ jobs:
         cd ios
         pod install --repo-update
 
-    # Step 5: Decrypt and install certificates and provisioning profiles
+
+
     - name: Decrypt and install certificates and provisioning profiles
       run: |
-        echo ${{ secrets.DEV_P12_BASE64 }} | base64 --decode > AppCheckGit_Dev.p12
-        echo ${{ secrets.DIS_P12_BASE64 }} | base64 --decode > AppCheckGit_Dis.p12
-        echo ${{ secrets.DEV_MOBILEPROVISION_BASE64 }} | base64 --decode > AppCheckGit_Dev.mobileprovision
-        echo ${{ secrets.DIS_MOBILEPROVISION_BASE64 }} | base64 --decode > AppCheckGit_Dis.mobileprovision
-
-        security create-keychain -p "" build.keychain
-        security import AppCheckGit_Dev.p12 -k ~/Library/Keychains/build.keychain -P "intel123" -T /usr/bin/codesign
-        security import AppCheckGit_Dis.p12 -k ~/Library/Keychains/build.keychain -P "intel123" -T /usr/bin/codesign
-
-        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-        cp AppCheckGit_Dev.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-        cp AppCheckGit_Dis.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-
-        security list-keychains -s ~/Library/Keychains/build.keychain
-        security default-keychain -s ~/Library/Keychains/build.keychain
-        security unlock-keychain -p "" ~/Library/Keychains/build.keychain
-        security set-key-partition-list -S apple-tool:,apple: -s -k "" ~/Library/Keychains/build.keychain
-
+          echo ${{ secrets.DEV_P12_BASE64 }} | base64 --decode > AppCheckGit_Dev.p12
+          echo ${{ secrets.DIS_P12_BASE64 }} | base64 --decode > AppCheckGit_Dis.p12
+          echo ${{ secrets.DEV_MOBILEPROVISION_BASE64 }} | base64 --decode > AppCheckGit_Dev.mobileprovision
+          echo ${{ secrets.DIS_MOBILEPROVISION_BASE64 }} | base64 --decode > AppCheckGit_Dis.mobileprovision
+      
+          # Check if files exist after decoding
+          if [ ! -f AppCheckGit_Dev.p12 ]; then echo "AppCheckGit_Dev.p12 not created"; exit 1; fi
+          if [ ! -f AppCheckGit_Dis.p12 ]; then echo "AppCheckGit_Dis.p12 not created"; exit 1; fi
+          if [ ! -f AppCheckGit_Dev.mobileprovision ]; then echo "AppCheckGit_Dev.mobileprovision not created"; exit 1; fi
+          if [ ! -f AppCheckGit_Dis.mobileprovision ]; then echo "AppCheckGit_Dis.mobileprovision not created"; exit 1; fi
+      
+          security create-keychain -p "" build.keychain
+          security import AppCheckGit_Dev.p12 -k ~/Library/Keychains/build.keychain -P "intel123" -T /usr/bin/codesign
+          security import AppCheckGit_Dis.p12 -k ~/Library/Keychains/build.keychain -P "intel123" -T /usr/bin/codesign
+      
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp AppCheckGit_Dev.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp AppCheckGit_Dis.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+      
+          security list-keychains -s ~/Library/Keychains/build.keychain
+          security default-keychain -s ~/Library/Keychains/build.keychain
+          security unlock-keychain -p "" ~/Library/Keychains/build.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" ~/Library/Keychains/build.keychain
+      
     # Step 6: Set up Ruby and install Fastlane
     - name: Set up Ruby and Install Fastlane
       run: |
